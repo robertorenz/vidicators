@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vindicators</title>
+  <meta name="description" content="A browser tribute to Atari Games' 1988 twin-tank arcade classic Vindicators.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="4" y="7" width="24" height="5" rx="1" fill="#2a3240"/>
+        <rect x="4" y="20" width="24" height="5" rx="1" fill="#2a3240"/>
+        <rect x="7" y="10" width="17" height="12" rx="2" fill="#d8452c"/>
+        <circle cx="14" cy="16" r="4.5" fill="#ff9a6a"/>
+        <rect x="16" y="14.5" width="13" height="3" fill="#e5e7eb"/>
+      </svg>
+      <div>
+        <h1>Vindicators</h1>
+        <p class="subtitle">Arcade tribute &middot; <span id="modeBadge">Simple controls</span></p>
+      </div>
+    </div>
+    <nav class="actions">
+      <button class="btn" data-open="controls">Controls</button>
+      <button class="btn" data-open="settings">Settings</button>
+      <button class="btn" data-open="scores">High Scores</button>
+      <button class="btn btn-accent" id="btnFull">Fullscreen</button>
+    </nav>
+  </header>
+
+  <main class="stage">
+    <div class="bezel" id="bezel">
+      <canvas id="screen" width="512" height="384" tabindex="0" aria-label="Vindicators game screen"></canvas>
+    </div>
+    <div class="hints">
+      <div class="hint"><span class="dot p1"></span><b>Player 1</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive &middot; <kbd>Space</kbd> fire &middot; <kbd>G</kbd> shield &middot; <kbd>1</kbd> start</div>
+      <div class="hint"><span class="dot p2"></span><b>Player 2</b> <kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> drive &middot; <kbd>Enter</kbd> fire &middot; <kbd>R-Shift</kbd> shield &middot; <kbd>2</kbd> start</div>
+      <div class="hint muted"><kbd>P</kbd> / <kbd>Esc</kbd> pause &middot; Gamepads supported</div>
+    </div>
+  </main>
+
+  <!-- Controls -->
+  <div class="modal" id="modal-controls" hidden>
+    <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="controlsTitle">
+      <header class="modal-head">
+        <h2 id="controlsTitle">Controls</h2>
+        <button class="icon-btn" data-close aria-label="Close">&times;</button>
+      </header>
+      <div class="modal-body">
+        <p class="lead">The arcade cabinet gave each player two tread joysticks. Push both forward to drive, one forward and one back to spin. Choose <b>Classic</b> in Settings for that feel, or keep <b>Simple</b> steering.</p>
+        <div class="grid2">
+          <section>
+            <h3><span class="dot p1"></span>Player 1</h3>
+            <table class="keys">
+              <tr><th>Simple drive</th><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td></tr>
+              <tr><th>Classic left tread</th><td><kbd>Q</kbd> fwd &middot; <kbd>A</kbd> back</td></tr>
+              <tr><th>Classic right tread</th><td><kbd>E</kbd> fwd &middot; <kbd>D</kbd> back</td></tr>
+              <tr><th>Fire</th><td><kbd>Space</kbd> or <kbd>F</kbd></td></tr>
+              <tr><th>Shield</th><td><kbd>G</kbd> or <kbd>L-Shift</kbd></td></tr>
+              <tr><th>Start / continue</th><td><kbd>1</kbd></td></tr>
+            </table>
+          </section>
+          <section>
+            <h3><span class="dot p2"></span>Player 2</h3>
+            <table class="keys">
+              <tr><th>Simple drive</th><td><kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd></td></tr>
+              <tr><th>Classic left tread</th><td><kbd>U</kbd> fwd &middot; <kbd>J</kbd> back</td></tr>
+              <tr><th>Classic right tread</th><td><kbd>O</kbd> fwd &middot; <kbd>L</kbd> back</td></tr>
+              <tr><th>Fire</th><td><kbd>Enter</kbd> or <kbd>.</kbd></td></tr>
+              <tr><th>Shield</th><td><kbd>R-Shift</kbd> or <kbd>/</kbd></td></tr>
+              <tr><th>Start / continue</th><td><kbd>2</kbd></td></tr>
+            </table>
+          </section>
+        </div>
+        <h3>Gamepad</h3>
+        <p>Pad 1 controls Player 1 and pad 2 controls Player 2. Classic mode: left stick = left tread, right stick = right tread. Simple mode: left stick or D-pad steers. <b>A / RT / RB</b> fire, <b>B / LT / LB</b> shield, <b>Start</b> joins.</p>
+        <h3>How to play</h3>
+        <ul class="tips">
+          <li><b>Fuel is your life.</b> It drains over time, and every hit you take burns more. Grab the red fuel canisters.</li>
+          <li>Collect <b>battle stars</b>. After each station, spend them in the <b>Equipment Room</b> on speed, shot speed, range, power, shields and a bigger fuel tank.</li>
+          <li>Drive onto the green <b>exit hatch</b> to go up a level. The top level of every station holds the <b>control center</b>. Destroy it to unlock the exit, then escape before the station blows.</li>
+          <li><b>Shields</b> block all damage while you hold the button, but they only last a few seconds and recharge slowly.</li>
+          <li>Your shots can knock enemy shells out of the air.</li>
+        </ul>
+      </div>
+      <footer class="modal-foot"><button class="btn btn-primary primary" data-close>Got it</button></footer>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="modal" id="modal-settings" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <header class="modal-head">
+        <h2 id="settingsTitle">Settings</h2>
+        <button class="icon-btn" data-close aria-label="Close">&times;</button>
+      </header>
+      <form id="settingsForm" class="modal-body form">
+        <label class="field">
+          <span>Control style</span>
+          <select name="controlMode">
+            <option value="simple">Simple: steer and drive</option>
+            <option value="classic">Classic: twin tread sticks (arcade)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Difficulty</span>
+          <select name="difficulty">
+            <option value="easy">Easy: slower fuel drain</option>
+            <option value="normal">Normal: arcade</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Volume</span>
+          <input type="range" name="volume" min="0" max="100">
+        </label>
+        <label class="check"><input type="checkbox" name="sound"> <span>Sound effects</span></label>
+        <label class="check"><input type="checkbox" name="speech"> <span>Voice callouts</span></label>
+        <label class="check"><input type="checkbox" name="radar"> <span>Exit radar (points to the exit after 40 seconds)</span></label>
+        <footer class="modal-foot flush"><button class="btn btn-primary primary" type="submit">Done</button></footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- High scores -->
+  <div class="modal" id="modal-scores" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="scoresTitle">
+      <header class="modal-head">
+        <h2 id="scoresTitle">High Scores</h2>
+        <button class="icon-btn" data-close aria-label="Close">&times;</button>
+      </header>
+      <div class="modal-body">
+        <table class="scores" id="scoreTable">
+          <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Station</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <footer class="modal-foot">
+        <button class="btn btn-ghost" id="resetScores">Reset table</button>
+        <button class="btn btn-primary primary" data-close>Close</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Confirm reset -->
+  <div class="modal" id="modal-confirmReset" hidden>
+    <div class="modal-card narrow" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
+      <header class="modal-head">
+        <h2 id="resetTitle">Reset high scores?</h2>
+        <button class="icon-btn" data-close aria-label="Close">&times;</button>
+      </header>
+      <div class="modal-body"><p>This puts the default table back and can't be undone.</p></div>
+      <footer class="modal-foot">
+        <button class="btn btn-ghost" data-close>Cancel</button>
+        <button class="btn btn-danger primary" id="confirmResetYes">Reset</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Initials entry -->
+  <div class="modal" id="modal-initials" hidden>
+    <div class="modal-card narrow" role="dialog" aria-modal="true" aria-labelledby="initialsTitle">
+      <header class="modal-head"><h2 id="initialsTitle">New high score!</h2></header>
+      <form id="initialsForm" class="modal-body center">
+        <div class="big-score" id="initialsScore">0</div>
+        <label class="field">
+          <span>Enter your initials</span>
+          <input id="initialsInput" class="initials" maxlength="3" autocomplete="off" spellcheck="false" autofocus>
+        </label>
+        <footer class="modal-foot flush"><button class="btn btn-primary" type="submit">Save</button></footer>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/core.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/level.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
