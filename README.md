@@ -59,4 +59,11 @@ js/ui.js          settings / controls / high-score / initials modals
 
 Settings and the high-score table are saved in `localStorage`.
 
-*Fan tribute. Vindicators is a trademark of its respective owners.*
+## Credits
+
+- **Original game:** *Vindicators* © 1988 Atari Games Corporation, which ran on the Atari System 2 arcade hardware and was followed by *Vindicators Part II*. The gameplay, the SR-88 tanks, the Tangent Empire story and the Equipment Room concept all come from that game. This project is an unofficial fan tribute. It has no affiliation with, and no endorsement from, the rights holders, and it contains no original code, graphics or sound.
+- **Remake:** Roberto Renz ([@robertorenz](https://github.com/robertorenz)), built with the help of [Claude Code](https://claude.com/claude-code) by Anthropic.
+- **Fonts:** [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P) by CodeMan38, and [Inter](https://rsms.me/inter/) by Rasmus Andersson. Both are served by Google Fonts under the SIL Open Font License 1.1.
+- **Everything else:** all graphics are drawn in code on an HTML5 Canvas, all sound effects are synthesized live with the Web Audio API, and voice callouts use the browser's built-in speech synthesis. There are no external image or audio assets.
+
+*Vindicators is a trademark of its respective owners. This fan project is non-commercial.*
