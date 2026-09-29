@@ -22,7 +22,11 @@ Then browse to http://localhost:8000.
 - **Limited shields** block all damage while held and recharge slowly.
 - **Stations have 3 levels.** The top level holds the control center. Destroy it and the exit unlocks, then a 30-second escape countdown starts.
 - **Two players** share one screen at the same time and can join or continue at any time.
-- The oblique 3/4 view has raised metal walls, the resolution is 512×384 (Atari System 2), and digitized-style voice callouts are provided by the browser's speech synthesis.
+- The oblique 3/4 view has raised metal walls, and digitized-style voice callouts are provided by the browser's speech synthesis.
+
+## Display
+
+The game fills the browser window. Gameplay uses the arcade's 384-line-tall logical screen, and the view widens from 4:3 up to 2:1 to match your window. Everything is drawn at your display's real pixel density, so it stays sharp at any size. The map is rendered in cached 8×8-tile chunks to keep memory use modest. Use **Fullscreen** for the biggest picture.
 
 ## Controls
 
@@ -48,7 +52,7 @@ js/core.js        constants, RNG, settings, high-score storage
 js/audio.js       Web Audio synthesized SFX, engine rumble, speech
 js/input.js       keyboard / gamepad, simple + classic tread modes
 js/level.js       seeded station generator (rooms, corridors, spawns)
-js/render.js      map pre-rendering, sprites, HUD, title/equipment screens
+js/render.js      chunked high-res map renderer, sprites, HUD, title/equipment screens
 js/game.js        game state machine, AI, combat, main loop
 js/ui.js          settings / controls / high-score / initials modals
 ```

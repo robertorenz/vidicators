@@ -1,12 +1,17 @@
 'use strict';
 // ---------------------------------------------------------------------------
 // Core constants, math helpers and persistent settings.
-// The playfield uses the Atari System 2 resolution (512x384).
+// Game logic runs in logical pixels based on the Atari System 2 screen (512x384).
 // ---------------------------------------------------------------------------
 const TILE = 32;
 const WALL_H = 12;           // height of the pseudo-3D wall face in pixels
-const VIEW_W = 512;
+// The view is always 384 logical pixels tall; its width stretches with the
+// window (512 = the arcade's 4:3, up to 16:9 and a bit beyond) so the game can
+// fill the screen. RS is the device-pixel scale the canvas is rendered at.
+const BASE_W = 512;
+let VIEW_W = BASE_W;
 const VIEW_H = 384;
+let RS = 1;
 const HUD_H = 28;
 const VIEW_GH = VIEW_H - HUD_H;
 const TAU = Math.PI * 2;

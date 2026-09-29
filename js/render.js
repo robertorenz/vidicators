@@ -47,97 +47,171 @@ function drawStarIcon(c, x, y, r, rot = 0) {
 }
 
 // ---------------------------------------------------------------------------
-// Map layers
+// Map layers. The station is drawn in 8x8-tile chunks at the screen's real
+// pixel density and cached (LRU), so walls and decks stay sharp at any size
+// without holding a full-resolution copy of the whole station in memory.
+// Layer 'f' = deck plating, layer 'w' = raised walls (drawn over the actors).
 // ---------------------------------------------------------------------------
+const CHUNK = 8;
+const CHUNK_PX = CHUNK * TILE;
+
+function tileHash(x, y, s) {
+  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ s;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
 function buildMapCanvases(L) {
-  const P = PALETTES[(L.station - 1 + L.loop * 3) % PALETTES.length];
-  const { W, H, grid } = L;
-  const T = TILE;
-  const rng = mulberry32(L.seed ^ 0x5bd1e995);
-  const solid = (x, y) => x < 0 || y < 0 || x >= W || y >= H || grid[y * W + x] === 1;
+  return {
+    L, palette: PALETTES[(L.station - 1 + L.loop * 3) % PALETTES.length],
+    chunks: new Map(), scale: 0, scorch: [],
+  };
+}
 
-  const floor = document.createElement('canvas');
-  floor.width = W * T; floor.height = H * T;
-  const f = floor.getContext('2d');
-  f.fillStyle = '#040507'; f.fillRect(0, 0, floor.width, floor.height);
+function mapSolid(L, x, y) { return x < 0 || y < 0 || x >= L.W || y >= L.H || L.grid[y * L.W + x] === 1; }
 
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      if (solid(x, y)) continue;
-      const X = x * T, Y = y * T;
-      f.fillStyle = P.floor[((x >> 1) + (y >> 1)) & 1];
-      f.fillRect(X, Y, T, T);
-      // deck plate bevels
-      f.fillStyle = P.hi; f.fillRect(X, Y, T, 1); f.fillRect(X, Y, 1, T);
-      f.fillStyle = P.seam; f.fillRect(X, Y + T - 1, T, 1); f.fillRect(X + T - 1, Y, 1, T);
-      const r = rng();
-      if (r < 0.1) { // vent grate
-        f.fillStyle = P.seam; f.fillRect(X + 7, Y + 7, 18, 18);
-        f.fillStyle = P.detail; for (let i = 0; i < 4; i++) f.fillRect(X + 9, Y + 9 + i * 4, 14, 2);
-      } else if (r < 0.2) { // rivets
-        f.fillStyle = P.hi;
-        for (const [a, b] of [[4, 4], [T - 6, 4], [4, T - 6], [T - 6, T - 6]]) f.fillRect(X + a, Y + b, 2, 2);
-        f.fillStyle = P.seam;
-        for (const [a, b] of [[5, 5], [T - 5, 5], [5, T - 5], [T - 5, T - 5]]) f.fillRect(X + a, Y + b, 1, 1);
-      } else if (r < 0.25) { // floor light
-        f.fillStyle = P.seam; f.fillRect(X + 10, Y + 13, 12, 6);
-        f.fillStyle = P.trim; f.globalAlpha = 0.55; f.fillRect(X + 11, Y + 14, 10, 4); f.globalAlpha = 1;
-      } else if (r < 0.3) { // panel seam
-        f.fillStyle = P.seam; f.fillRect(X + 15, Y + 2, 1, T - 4);
-      }
-      // wall shadows (light falls from the upper left)
-      if (solid(x, y - 1)) for (let i = 0; i < 10; i++) { f.fillStyle = `rgba(0,0,0,${0.5 * (1 - i / 10)})`; f.fillRect(X, Y + i, T, 1); }
-      if (solid(x - 1, y)) for (let i = 0; i < 8; i++) { f.fillStyle = `rgba(0,0,0,${0.42 * (1 - i / 8)})`; f.fillRect(X + i, Y, 1, T); }
-      if (solid(x - 1, y - 1) && !solid(x - 1, y) && !solid(x, y - 1)) { f.fillStyle = 'rgba(0,0,0,0.3)'; f.fillRect(X, Y, 6, 8); }
+function drawFloorTile(f, M, x, y) {
+  const L = M.L, P = M.palette, T = TILE, X = x * T, Y = y * T;
+  const solid = (a, b) => mapSolid(L, a, b);
+  f.fillStyle = P.floor[((x >> 1) + (y >> 1)) & 1];
+  f.fillRect(X, Y, T, T);
+  f.fillStyle = P.hi; f.fillRect(X, Y, T, 1); f.fillRect(X, Y, 1, T);
+  f.fillStyle = P.seam; f.fillRect(X, Y + T - 1, T, 1); f.fillRect(X + T - 1, Y, 1, T);
+  const r = tileHash(x, y, L.seed);
+  if (r < 0.1) { // vent grate
+    f.fillStyle = P.seam; f.fillRect(X + 7, Y + 7, 18, 18);
+    f.fillStyle = P.detail; for (let i = 0; i < 4; i++) f.fillRect(X + 9, Y + 9 + i * 4, 14, 2);
+  } else if (r < 0.2) { // rivets
+    for (const [a, b] of [[5, 5], [T - 5, 5], [5, T - 5], [T - 5, T - 5]]) {
+      f.fillStyle = P.hi; f.beginPath(); f.arc(X + a, Y + b, 1.4, 0, TAU); f.fill();
+      f.fillStyle = P.seam; f.beginPath(); f.arc(X + a + 0.5, Y + b + 0.5, 0.7, 0, TAU); f.fill();
+    }
+  } else if (r < 0.25) { // floor light
+    f.fillStyle = P.seam; f.fillRect(X + 10, Y + 13, 12, 6);
+    f.fillStyle = P.trim; f.globalAlpha = 0.55; f.fillRect(X + 11, Y + 14, 10, 4); f.globalAlpha = 1;
+  } else if (r < 0.3) { // panel seam
+    f.fillStyle = P.seam; f.fillRect(X + 15, Y + 2, 1, T - 4);
+  }
+  // wall shadows (light falls from the upper left)
+  if (solid(x, y - 1)) {
+    const g = f.createLinearGradient(0, Y, 0, Y + 10);
+    g.addColorStop(0, 'rgba(0,0,0,0.5)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    f.fillStyle = g; f.fillRect(X, Y, T, 10);
+  }
+  if (solid(x - 1, y)) {
+    const g = f.createLinearGradient(X, 0, X + 8, 0);
+    g.addColorStop(0, 'rgba(0,0,0,0.42)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    f.fillStyle = g; f.fillRect(X, Y, 8, T);
+  }
+  if (solid(x - 1, y - 1) && !solid(x - 1, y) && !solid(x, y - 1)) { f.fillStyle = 'rgba(0,0,0,0.3)'; f.fillRect(X, Y, 6, 8); }
+}
+
+// Walls are drawn in world space: the top face is lifted WALL_H above the tile,
+// and a front face fills the bottom WALL_H of the tile when the deck is open below.
+function drawWallTile(w, M, x, y) {
+  const L = M.L, P = M.palette, T = TILE;
+  const solid = (a, b) => mapSolid(L, a, b);
+  const X = x * T, Y = y * T - WALL_H;
+  let edge = false;
+  for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1; dx++) if (!solid(x + dx, y + dy)) { edge = true; break; }
+  if (edge) {
+    const g = w.createLinearGradient(0, Y, 0, Y + T);
+    g.addColorStop(0, P.wallTop[0]); g.addColorStop(1, P.wallTop[1]);
+    w.fillStyle = g; w.fillRect(X, Y, T, T);
+    w.strokeStyle = 'rgba(0,0,0,0.25)'; w.lineWidth = 1; w.strokeRect(X + 3.5, Y + 3.5, T - 7, T - 7);
+    w.fillStyle = 'rgba(255,255,255,0.18)'; w.fillRect(X + 4, Y + 4, T - 8, 1);
+    w.fillStyle = 'rgba(0,0,0,0.3)';
+    for (const [a, b] of [[7, 7], [T - 7, 7], [7, T - 7], [T - 7, T - 7]]) { w.beginPath(); w.arc(X + a, Y + b, 1.2, 0, TAU); w.fill(); }
+  } else {
+    w.fillStyle = P.wallTop[1]; w.fillRect(X, Y, T, T);
+    w.fillStyle = 'rgba(0,0,0,0.12)'; w.fillRect(X, Y + T - 1, T, 1); w.fillRect(X + T - 1, Y, 1, T);
+    if (((x * 7 + y * 13) % 5) === 0) { // roof vents
+      w.fillStyle = 'rgba(0,0,0,0.22)'; w.fillRect(X + 9, Y + 9, 14, 14);
+      w.fillStyle = 'rgba(255,255,255,0.12)'; for (let i = 0; i < 3; i++) w.fillRect(X + 10, Y + 11 + i * 4, 12, 1);
     }
   }
+  if (!solid(x, y - 1)) { w.fillStyle = P.wallEdge; w.fillRect(X, Y, T, 2); }
+  if (!solid(x - 1, y)) { w.fillStyle = 'rgba(255,255,255,0.35)'; w.fillRect(X, Y, 1, T); }
+  if (!solid(x + 1, y)) { w.fillStyle = 'rgba(0,0,0,0.45)'; w.fillRect(X + T - 1, Y, 1, T); }
+  if (!solid(x, y + 1) && y + 1 < L.H) {
+    const FY = Y + T;
+    const g = w.createLinearGradient(0, FY, 0, FY + WALL_H);
+    g.addColorStop(0, P.wallFront[0]); g.addColorStop(1, P.wallFront[1]);
+    w.fillStyle = g; w.fillRect(X, FY, T, WALL_H);
+    w.fillStyle = 'rgba(0,0,0,0.35)';
+    for (let i = 4; i < T; i += 8) w.fillRect(X + i, FY + 2, 2, WALL_H - 3);
+    w.fillStyle = 'rgba(255,255,255,0.25)'; w.fillRect(X, FY, T, 1);
+    if (((x + y * 3) % 7) === 0) { // hazard trim
+      for (let i = 0; i < T; i += 6) { w.fillStyle = (i / 6) % 2 ? '#111' : P.trim; w.fillRect(X + i, FY + WALL_H - 4, 6, 3); }
+    }
+    w.fillStyle = 'rgba(0,0,0,0.7)'; w.fillRect(X, FY + WALL_H - 1, T, 1);
+  }
+}
 
-  // Raised wall layer, drawn over the actors so walls occlude what is behind them.
-  const walls = document.createElement('canvas');
-  walls.width = W * T; walls.height = H * T + WALL_H;
-  const w = walls.getContext('2d');
-  const openNear = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!solid(x + dx, y + dy)) return true; return false; };
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      if (!solid(x, y)) continue;
-      const X = x * T, Y = y * T;              // canvas-space top face (world y - WALL_H)
-      const edge = openNear(x, y);
-      if (edge) {
-        const g = w.createLinearGradient(0, Y, 0, Y + T);
-        g.addColorStop(0, P.wallTop[0]); g.addColorStop(1, P.wallTop[1]);
-        w.fillStyle = g; w.fillRect(X, Y, T, T);
-        w.strokeStyle = 'rgba(0,0,0,0.25)'; w.lineWidth = 1; w.strokeRect(X + 3.5, Y + 3.5, T - 7, T - 7);
-        w.fillStyle = 'rgba(255,255,255,0.18)'; w.fillRect(X + 4, Y + 4, T - 8, 1);
-        w.fillStyle = 'rgba(0,0,0,0.3)';
-        for (const [a, b] of [[6, 6], [T - 8, 6], [6, T - 8], [T - 8, T - 8]]) w.fillRect(X + a, Y + b, 2, 2);
-      } else {
-        // deep hull interior: darker machinery plating
-        w.fillStyle = P.wallTop[1]; w.fillRect(X, Y, T, T);
-        w.fillStyle = 'rgba(0,0,0,0.12)'; w.fillRect(X, Y + T - 1, T, 1); w.fillRect(X + T - 1, Y, 1, T);
-        if (((x * 7 + y * 13) % 5) === 0) { // roof vents
-          w.fillStyle = 'rgba(0,0,0,0.22)'; w.fillRect(X + 9, Y + 9, 14, 14);
-          w.fillStyle = 'rgba(255,255,255,0.12)'; for (let i = 0; i < 3; i++) w.fillRect(X + 10, Y + 11 + i * 4, 12, 1);
-        }
-      }
-      if (!solid(x, y - 1)) { w.fillStyle = P.wallEdge; w.fillRect(X, Y, T, 2); }
-      if (!solid(x - 1, y)) { w.fillStyle = 'rgba(255,255,255,0.35)'; w.fillRect(X, Y, 1, T); }
-      if (!solid(x + 1, y)) { w.fillStyle = 'rgba(0,0,0,0.45)'; w.fillRect(X + T - 1, Y, 1, T); }
-      if (!solid(x, y + 1) && y + 1 < H) {
-        const FY = Y + T;
-        const g = w.createLinearGradient(0, FY, 0, FY + WALL_H);
-        g.addColorStop(0, P.wallFront[0]); g.addColorStop(1, P.wallFront[1]);
-        w.fillStyle = g; w.fillRect(X, FY, T, WALL_H);
-        w.fillStyle = 'rgba(0,0,0,0.35)';
-        for (let i = 4; i < T; i += 8) w.fillRect(X + i, FY + 2, 2, WALL_H - 3);
-        w.fillStyle = 'rgba(255,255,255,0.25)'; w.fillRect(X, FY, T, 1);
-        if (((x + y * 3) % 7) === 0) { // hazard trim
-          for (let i = 0; i < T; i += 6) { w.fillStyle = (i / 6) % 2 ? '#111' : P.trim; w.fillRect(X + i, FY + WALL_H - 4, 6, 3); }
-        }
-        w.fillStyle = 'rgba(0,0,0,0.7)'; w.fillRect(X, FY + WALL_H - 1, T, 1);
-      }
+function drawScorch(g, s) {
+  const gr = g.createRadialGradient(s.x, s.y, 1, s.x, s.y, s.r);
+  gr.addColorStop(0, 'rgba(0,0,0,0.45)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(s.x - s.r, s.y - s.r, s.r * 2, s.r * 2);
+}
+
+function buildChunk(M, layer, cx, cy) {
+  const L = M.L, S = M.scale, ext = layer === 'w' ? WALL_H : 0;
+  const px0 = Math.round(cx * CHUNK_PX * S), px1 = Math.round((cx + 1) * CHUNK_PX * S);
+  const py0 = Math.round((cy * CHUNK_PX - ext) * S), py1 = Math.round((cy + 1) * CHUNK_PX * S);
+  const cv = document.createElement('canvas');
+  cv.width = px1 - px0; cv.height = py1 - py0;
+  const g = cv.getContext('2d');
+  g.setTransform(S, 0, 0, S, -px0, -py0);   // draw directly in world coordinates
+  const tx0 = cx * CHUNK, ty0 = cy * CHUNK;
+  const tx1 = Math.min(L.W, tx0 + CHUNK), ty1 = Math.min(L.H, ty0 + CHUNK);
+  if (layer === 'f') {
+    g.fillStyle = '#040507'; g.fillRect(cx * CHUNK_PX, cy * CHUNK_PX, CHUNK_PX, CHUNK_PX);
+    for (let y = ty0; y < ty1; y++) for (let x = tx0; x < tx1; x++) if (!mapSolid(L, x, y)) drawFloorTile(g, M, x, y);
+    for (const s of M.scorch) drawScorch(g, s);
+  } else {
+    for (let y = ty0; y < ty1; y++) for (let x = tx0; x < tx1; x++) if (mapSolid(L, x, y)) drawWallTile(g, M, x, y);
+  }
+  return { cv, g, px0, py0, layer, x0: cx * CHUNK_PX, y0: cy * CHUNK_PX };
+}
+
+function getChunk(M, layer, cx, cy) {
+  const key = layer + cx + ',' + cy;
+  let ch = M.chunks.get(key);
+  if (ch) { M.chunks.delete(key); M.chunks.set(key, ch); return ch; }
+  ch = buildChunk(M, layer, cx, cy);
+  M.chunks.set(key, ch);
+  const max = Math.max(30, Math.floor(36e6 / (ch.cv.width * ch.cv.height)));
+  while (M.chunks.size > max) M.chunks.delete(M.chunks.keys().next().value);
+  return ch;
+}
+
+function addScorch(M, x, y, r) {
+  const s = { x, y, r };
+  M.scorch.push(s);
+  if (M.scorch.length > 400) M.scorch.shift();
+  for (const ch of M.chunks.values()) {
+    if (ch.layer === 'f' && x + r > ch.x0 && x - r < ch.x0 + CHUNK_PX && y + r > ch.y0 && y - r < ch.y0 + CHUNK_PX) drawScorch(ch.g, s);
+  }
+}
+
+// Draws the visible part of a map layer. camX/camY is the world point shown at
+// screen (0, oy); vw/vh is the visible size in logical pixels.
+function drawMapLayer(c, M, layer, camX, camY, oy, vw, vh) {
+  if (M.scale !== RS) { M.scale = RS; M.chunks.clear(); }
+  const L = M.L, ext = layer === 'w' ? WALL_H : 0;
+  const ncx = Math.ceil(L.W / CHUNK), ncy = Math.ceil(L.H / CHUNK);
+  const cx0 = Math.max(0, Math.floor(camX / CHUNK_PX)), cx1 = Math.min(ncx - 1, Math.floor((camX + vw) / CHUNK_PX));
+  const cy0 = Math.max(0, Math.floor(camY / CHUNK_PX)), cy1 = Math.min(ncy - 1, Math.floor((camY + vh + ext) / CHUNK_PX));
+  const dx = Math.round(camX * RS), dy = Math.round(camY * RS) - Math.round(oy * RS);
+  c.save();
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  for (let cy = cy0; cy <= cy1; cy++) {
+    for (let cx = cx0; cx <= cx1; cx++) {
+      const ch = getChunk(M, layer, cx, cy);
+      c.drawImage(ch.cv, ch.px0 - dx, ch.py0 - dy);
     }
   }
-  return { floor, walls, fctx: f, palette: P };
+  c.restore();
 }
 
 // ---------------------------------------------------------------------------
@@ -345,13 +419,14 @@ function renderWorld(c) {
   const t = G.t;
   let camX = G.cam.x, camY = G.cam.y;
   if (G.shake > 0.3) { camX += (Math.random() - 0.5) * G.shake; camY += (Math.random() - 0.5) * G.shake; }
-  camX = Math.round(clamp(camX, 0, L.W * TILE - VIEW_W));
-  camY = Math.round(clamp(camY, 0, L.H * TILE - VIEW_GH));
+  // snap the camera to whole device pixels so map chunks and sprites line up
+  camX = Math.round(clamp(camX, 0, L.W * TILE - VIEW_W) * RS) / RS;
+  camY = Math.round(clamp(camY, 0, L.H * TILE - VIEW_GH) * RS) / RS;
 
   c.save();
   c.beginPath(); c.rect(0, HUD_H, VIEW_W, VIEW_GH); c.clip();
   c.fillStyle = '#000'; c.fillRect(0, HUD_H, VIEW_W, VIEW_GH);
-  c.drawImage(M.floor, camX, camY, VIEW_W, VIEW_GH, 0, HUD_H, VIEW_W, VIEW_GH);
+  drawMapLayer(c, M, 'f', camX, camY, HUD_H, VIEW_W, VIEW_GH);
   c.translate(-camX, -camY + HUD_H);
 
   if (G.exit) drawExit(c, G.exit, t);
@@ -383,7 +458,7 @@ function renderWorld(c) {
   // raised walls
   c.save();
   c.beginPath(); c.rect(0, HUD_H, VIEW_W, VIEW_GH); c.clip();
-  c.drawImage(M.walls, camX, camY + WALL_H, VIEW_W, VIEW_GH, 0, HUD_H, VIEW_W, VIEW_GH);
+  drawMapLayer(c, M, 'w', camX, camY, HUD_H, VIEW_W, VIEW_GH);
   c.translate(-camX, -camY + HUD_H);
   for (const p of G.players) if (p.active && p.alive && p.shieldOn) drawShield(c, p, t);
   for (const r of G.rings) {
@@ -498,35 +573,37 @@ function renderBackdrop(c) {
   if (D) {
     const L = D.level;
     const mw = L.W * TILE - VIEW_W, mh = L.H * TILE - VIEW_H;
-    const cx = Math.round(mw * (0.5 + 0.45 * Math.sin(G.t * 0.05)));
-    const cy = Math.round(mh * (0.5 + 0.45 * Math.sin(G.t * 0.037 + 1)));
-    c.drawImage(D.map.floor, cx, cy, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
-    c.drawImage(D.map.walls, cx, cy + WALL_H, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
+    const cx = Math.round(mw * (0.5 + 0.45 * Math.sin(G.t * 0.05)) * RS) / RS;
+    const cy = Math.round(mh * (0.5 + 0.45 * Math.sin(G.t * 0.037 + 1)) * RS) / RS;
+    drawMapLayer(c, D.map, 'f', cx, cy, 0, VIEW_W, VIEW_H);
+    drawMapLayer(c, D.map, 'w', cx, cy, 0, VIEW_W, VIEW_H);
   }
   c.fillStyle = 'rgba(4,6,10,0.72)'; c.fillRect(0, 0, VIEW_W, VIEW_H);
 }
 
 function renderTitle(c) {
   renderBackdrop(c);
+  const ox = (VIEW_W - BASE_W) / 2;
   const page = Math.floor(G.stateT / 8) % 3;
   if (page === 0) {
     drawLogo(c, VIEW_W / 2, 96, 32);
     txt(c, 'THE TANGENT EMPIRE HAS BUILT', VIEW_W / 2, 150, '#c8d0dc', 8, 'center');
     txt(c, '14 BATTLE STATIONS', VIEW_W / 2, 164, '#c8d0dc', 8, 'center');
     txt(c, 'YOUR SR-88 TANKS MUST DESTROY THEM', VIEW_W / 2, 178, '#c8d0dc', 8, 'center');
-    drawTank(c, 200, 230, -Math.PI / 2 + Math.sin(G.t) * 0.3, PCOL[0], G.t * 20, G.t * 20, 1.6);
-    drawTank(c, 312, 230, -Math.PI / 2 - Math.sin(G.t) * 0.3, PCOL[1], G.t * 20, G.t * 20, 1.6);
+    drawTank(c, ox + 200, 230, -Math.PI / 2 + Math.sin(G.t) * 0.3, PCOL[0], G.t * 20, G.t * 20, 1.6);
+    drawTank(c, ox + 312, 230, -Math.PI / 2 - Math.sin(G.t) * 0.3, PCOL[1], G.t * 20, G.t * 20, 1.6);
     if (blink(2)) txt(c, 'PRESS 1 OR 2 TO START', VIEW_W / 2, 284, '#ffd23a', 8, 'center');
     txt(c, 'FREE PLAY', VIEW_W / 2, 310, '#8894a4', 8, 'center');
+    txt(c, 'WASD/ARROWS DRIVE  SPACE FIRE  G SHIELD', VIEW_W / 2, 332, '#6c7a8e', 8, 'center');
   } else if (page === 1) {
     drawLogo(c, VIEW_W / 2, 44, 16);
     txt(c, 'HIGH SCORES', VIEW_W / 2, 72, '#ffd23a', 8, 'center');
     G.hiscores.slice(0, 10).forEach((h, i) => {
       const y = 96 + i * 20, col = i === 0 ? '#ff9a6a' : i < 3 ? '#e6c15a' : '#c8d0dc';
-      txt(c, String(i + 1).padStart(2, ' ') + '.', 120, y, col);
-      txt(c, h.name, 160, y, col);
-      txt(c, String(h.score).padStart(7, ' '), 220, y, col);
-      txt(c, 'ST ' + String(h.station).padStart(2, ' '), 330, y, '#8894a4');
+      txt(c, String(i + 1).padStart(2, ' ') + '.', ox + 120, y, col);
+      txt(c, h.name, ox + 160, y, col);
+      txt(c, String(h.score).padStart(7, ' '), ox + 220, y, col);
+      txt(c, 'ST ' + String(h.station).padStart(2, ' '), ox + 330, y, '#8894a4');
     });
     if (blink(2)) txt(c, 'PRESS 1 OR 2 TO START', VIEW_W / 2, 320, '#ffd23a', 8, 'center');
   } else {
@@ -541,10 +618,11 @@ function renderTitle(c) {
     ];
     rows.forEach(([k, s], i) => {
       const y = 104 + i * 36;
-      if (k === 'exit') drawExit(c, { x: 116, y, locked: false }, G.t);
-      else if (k === 'cc') { c.save(); c.translate(116, y); c.scale(0.45, 0.45); drawControlCenter(c, { x: 0, y: 0, hp: 1, maxHp: 1, spin: G.t, flash: 0 }, G.t); c.restore(); }
-      else drawPickup(c, { type: k, x: 116, y, ph: i }, G.t);
-      txt(c, s, 146, y - 4, '#c8d0dc');
+      const ix = ox + 116;
+      if (k === 'exit') drawExit(c, { x: ix, y, locked: false }, G.t);
+      else if (k === 'cc') { c.save(); c.translate(ix, y); c.scale(0.45, 0.45); drawControlCenter(c, { x: 0, y: 0, hp: 1, maxHp: 1, spin: G.t, flash: 0 }, G.t); c.restore(); }
+      else drawPickup(c, { type: k, x: ix, y, ph: i }, G.t);
+      txt(c, s, ox + 146, y - 4, '#c8d0dc');
     });
     txt(c, 'ENEMY FIRE DRAINS YOUR FUEL', VIEW_W / 2, 290, '#ff9a6a', 8, 'center');
     if (blink(2)) txt(c, 'PRESS 1 OR 2 TO START', VIEW_W / 2, 320, '#ffd23a', 8, 'center');
@@ -563,15 +641,16 @@ function renderOverlays(c) {
   if (G.state === 'intro') {
     renderBanner(c, 'STATION ' + G.station, 'LEVEL ' + G.levelNum + (G.level.isFinal ? '  -  CONTROL CENTER' : ''), '#e6c15a');
   } else if (G.state === 'tally' && G.tally) {
-    c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(56, 100, 400, 170);
-    c.strokeStyle = '#46f08a'; c.lineWidth = 2; c.strokeRect(57, 101, 398, 168);
+    const ox = (VIEW_W - BASE_W) / 2;
+    c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(ox + 56, 100, 400, 170);
+    c.strokeStyle = '#46f08a'; c.lineWidth = 2; c.strokeRect(ox + 57, 101, 398, 168);
     txt(c, 'LEVEL COMPLETE', VIEW_W / 2, 116, '#46f08a', 16, 'center');
     G.tally.forEach((r, i) => {
       const y = 156 + i * 50, col = PCOL[r.id].ui;
-      txt(c, 'PLAYER ' + (r.id + 1), 88, y, col);
-      txt(c, 'FUEL BONUS', 88, y + 16, '#c8d0dc');
+      txt(c, 'PLAYER ' + (r.id + 1), ox + 88, y, col);
+      txt(c, 'FUEL BONUS', ox + 88, y + 16, '#c8d0dc');
       const shown = Math.min(r.bonus, Math.floor(r.bonus * clamp((G.stateT - 0.4) / 1.2, 0, 1)));
-      txt(c, String(shown), 424, y + 16, '#ffffff', 8, 'right');
+      txt(c, String(shown), ox + 424, y + 16, '#ffffff', 8, 'right');
     });
   } else if (G.state === 'continue') {
     c.fillStyle = 'rgba(0,0,0,0.55)'; c.fillRect(0, HUD_H, VIEW_W, VIEW_GH);
@@ -601,7 +680,8 @@ function renderEquip(c) {
   txt(c, 'STATION ' + G.station + ' DESTROYED', VIEW_W / 2, 38, '#46f08a', 8, 'center');
   const act = G.players.filter(p => p.active);
   act.forEach((p, k) => {
-    const x0 = act.length === 2 ? 8 + k * 252 : 132, w = 244, col = PCOL[p.id];
+    const w = 244, col = PCOL[p.id];
+    const x0 = (VIEW_W - (act.length === 2 ? 496 : w)) / 2 + k * 252;
     c.fillStyle = 'rgba(10,14,20,0.88)'; c.fillRect(x0, 56, w, 290);
     c.strokeStyle = col.ui; c.lineWidth = 1; c.strokeRect(x0 + 0.5, 56.5, w - 1, 289);
     txt(c, 'PLAYER ' + (p.id + 1), x0 + 10, 66, col.ui);
@@ -656,7 +736,7 @@ function renderVictory(c) {
 }
 
 function render(c) {
-  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.setTransform(RS, 0, 0, RS, 0, 0);
   c.fillStyle = '#000'; c.fillRect(0, 0, VIEW_W, VIEW_H);
   if (G.state === 'title') { renderTitle(c); return; }
   if (G.state === 'equip') { renderEquip(c); return; }

@@ -156,12 +156,7 @@ function explosion(x, y, size) {
   G.shake = Math.min(14, G.shake + 2 + size * 2.5);
   Sound.explode(size >= 2);
   // permanent scorch mark on the deck
-  if (G.map && tileAt(x, y) === 0) {
-    const f = G.map.fctx, r = 8 + size * 5;
-    const g = f.createRadialGradient(x, y, 1, x, y, r);
-    g.addColorStop(0, 'rgba(0,0,0,0.45)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    f.fillStyle = g; f.fillRect(x - r, y - r, r * 2, r * 2);
-  }
+  if (G.map && tileAt(x, y) === 0) addScorch(G.map, x, y, 8 + size * 5);
 }
 
 function floatText(x, y, s, color = '#ffffff') { G.texts.push({ x, y, s, color, t: 1.2 }); }
@@ -210,6 +205,7 @@ function loadLevel() {
   const L = generateLevel(G.station, G.levelNum, G.loop);
   G.level = L;
   G.map = buildMapCanvases(L);
+  if (G.demo) G.demo.map.chunks.clear();   // free the title-screen backdrop
   G.enemies = []; G.bullets = []; G.pickups = []; G.particles = []; G.rings = []; G.texts = [];
   G.exit = null; G.escaping = false; G.escapeT = 0; G.levelTime = 0; G.flowT = 0; G.banner = null; G.exiter = null;
   G.flow = new Int16Array(L.W * L.H); G.flowQ = new Int32Array(L.W * L.H);

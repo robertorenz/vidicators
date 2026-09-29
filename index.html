@@ -22,7 +22,7 @@
       </svg>
       <div>
         <h1>Vindicators</h1>
-        <p class="subtitle">Arcade tribute &middot; <span id="modeBadge">Simple controls</span></p>
+        <p class="subtitle">Arcade tribute &middot; <span id="modeBadge">Simple controls</span> &middot; P1 WASD/Space/G &middot; P2 Arrows/Enter/R-Shift &middot; P pause</p>
       </div>
     </div>
     <nav class="actions">
@@ -33,14 +33,9 @@
     </nav>
   </header>
 
-  <main class="stage">
+  <main class="stage" id="stage">
     <div class="bezel" id="bezel">
       <canvas id="screen" width="512" height="384" tabindex="0" aria-label="Vindicators game screen"></canvas>
-    </div>
-    <div class="hints">
-      <div class="hint"><span class="dot p1"></span><b>Player 1</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive (or arrows when solo) &middot; <kbd>Space</kbd> fire &middot; <kbd>G</kbd> shield &middot; <kbd>1</kbd> start</div>
-      <div class="hint"><span class="dot p2"></span><b>Player 2</b> <kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> drive &middot; <kbd>Enter</kbd> fire &middot; <kbd>R-Shift</kbd> shield &middot; <kbd>2</kbd> start</div>
-      <div class="hint muted"><kbd>P</kbd> / <kbd>Esc</kbd> pause &middot; Gamepads supported</div>
     </div>
   </main>
 

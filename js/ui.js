@@ -80,15 +80,23 @@ const UI = {
   },
 
   resize() {
-    const wrap = document.getElementById('bezel');
+    const stage = document.getElementById('stage');
     const cv = document.getElementById('screen');
-    const fs = document.fullscreenElement === wrap;
-    const availW = fs ? window.innerWidth : Math.min(wrap.parentElement.clientWidth, 1100);
-    const availH = fs ? window.innerHeight : window.innerHeight - 160;
-    let w = Math.min(availW - (fs ? 0 : 24), availH * 4 / 3);
-    w = Math.max(320, w);
-    cv.style.width = Math.round(w) + 'px';
-    cv.style.height = Math.round(w * 3 / 4) + 'px';
+    const fs = !!document.fullscreenElement;
+    const pad = fs ? 0 : 20;                       // room for the bezel frame
+    const availW = Math.max(200, stage.clientWidth - pad);
+    const availH = Math.max(150, stage.clientHeight - pad);
+    // The logical view stays 384 tall; its width follows the window shape
+    // (4:3 arcade up to 2:1) so the playfield fills the screen.
+    VIEW_W = Math.round(clamp(VIEW_H * availW / availH, BASE_W, 768) / 2) * 2;
+    const k = Math.min(availW / VIEW_W, availH / VIEW_H);
+    cv.style.width = Math.floor(VIEW_W * k) + 'px';
+    cv.style.height = Math.floor(VIEW_H * k) + 'px';
+    // Render at the display's real pixel density (capped to keep memory sane).
+    RS = Math.max(1, Math.min(4, k * (window.devicePixelRatio || 1)));
+    cv.width = Math.round(VIEW_W * RS);
+    cv.height = Math.round(VIEW_H * RS);
+    if (typeof G !== 'undefined' && G.level) updateCamera(0, true);
   },
 
   init() {
@@ -123,9 +131,9 @@ const UI = {
     });
 
     document.getElementById('btnFull').addEventListener('click', () => {
-      const wrap = document.getElementById('bezel');
+      const stage = document.getElementById('stage');
       if (document.fullscreenElement) document.exitFullscreen();
-      else if (wrap.requestFullscreen) wrap.requestFullscreen().catch(() => {});
+      else if (stage.requestFullscreen) stage.requestFullscreen().catch(() => {});
     });
     document.addEventListener('fullscreenchange', () => this.resize());
     window.addEventListener('resize', () => this.resize());
