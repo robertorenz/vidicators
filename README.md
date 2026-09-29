@@ -1,5 +1,7 @@
 # Vindicators — Arcade Tribute
 
+**▶ Play it now: https://robertorenz.github.io/vidicators/**
+
 A browser remake of Atari Games' 1988 twin-tank arcade game **Vindicators**, written in plain HTML5 Canvas + JavaScript with no build step and no dependencies.
 
 Drive your SR-88 battle tank through 14 Tangent Empire space stations. Blast gun turrets, enemy tanks and tank factories, grab fuel and battle stars, destroy each station's control center, and escape before it explodes.
