@@ -2,9 +2,20 @@
 
 **▶ Play it now: https://robertorenz.github.io/vidicators/**
 
+[![Vindicators title screen](docs/images/title.png)](https://robertorenz.github.io/vidicators/)
+
 A browser remake of Atari Games' 1988 twin-tank arcade game **Vindicators**, written in plain HTML5 Canvas + JavaScript with no build step and no dependencies.
 
 Drive your SR-88 battle tank through 14 Tangent Empire space stations. Blast gun turrets, enemy tanks and tank factories, grab fuel and battle stars, destroy each station's control center, and escape before it explodes.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Player 1 fighting a heavy tank, a standard tank and a gun turret in the cobalt-blue Station 2](docs/images/gameplay.png) | ![Both players fighting side by side in teal Station 6, with Player 2's shield up next to a tank factory](docs/images/coop.png) |
+| **Station combat.** Enemy tanks, gun turrets, battle stars, and the shield pickup. | **Two-player co-op.** Both tanks share one screen, and Player 2 has the shield up. |
+| ![The control center firing a ring of shells while the shielded player attacks it](docs/images/control-center.png) | ![The Equipment Room with both players buying upgrades](docs/images/equipment-room.png) |
+| **The control center.** Destroy it to unlock the exit (red X), then escape. | **Equipment Room.** Spend battle stars on upgrades between stations. |
 
 ## Running
 
@@ -52,6 +63,7 @@ Press **P** or **Esc** to pause. Gamepads are supported: pad 1 is Player 1 and p
 ```
 package.json      npm scripts (start / check / test)
 scripts/          zero-dependency dev server, syntax check, level validator
+docs/images/      README screenshots
 index.html        page shell, modals
 styles.css        page theme
 js/core.js        constants, RNG, settings, high-score storage
