@@ -23,6 +23,7 @@ const Input = {
   keys: Object.create(null),
   tapped: new Set(),   // keys pressed since the last poll, so quick taps are never missed
   blocked: false,
+  soloP1: true,        // set by the game while player 2 is not in play
   c: [blank(), blank()],
   pauseP: false, pausePrev: false,
 
@@ -60,6 +61,7 @@ const Input = {
         c.left = rf && !lf; c.right = lf && !rf;
       }
       c.fire = this.any(km.fire); c.shield = this.any(km.shield); c.start = this.any(km.start);
+      if (i === 0 && this.soloP1) this.mergeArrows(c);
 
       const pad = pads && pads[i];
       if (pad && pad.connected) this.mergePad(c, pad, mode);
@@ -72,6 +74,15 @@ const Input = {
     this.tapped.clear();
     this.pauseP = pz && !this.pausePrev;
     this.pausePrev = pz;
+  },
+
+  // While player 2 hasn't joined, the arrow keys also steer player 1.
+  mergeArrows(c) {
+    const up = this.any(['ArrowUp']), dn = this.any(['ArrowDown']);
+    const lt = this.any(['ArrowLeft']), rt = this.any(['ArrowRight']);
+    c.up = c.up || up; c.down = c.down || dn; c.left = c.left || lt; c.right = c.right || rt;
+    const fwd = (up ? 1 : 0) - (dn ? 1 : 0), turn = (rt ? 1 : 0) - (lt ? 1 : 0);
+    if (fwd || turn) { c.L = clamp(fwd + turn, -1, 1); c.R = clamp(fwd - turn, -1, 1); }
   },
 
   mergePad(c, pad, mode) {

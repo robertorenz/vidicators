@@ -35,6 +35,8 @@ Then browse to http://localhost:8000.
 | Shield | G / Left Shift | Right Shift / / |
 | Start / Join / Continue | 1 | 2 |
 
+When Player 1 is playing alone, the arrow keys also drive Player 1. Once Player 2 joins, the arrows go back to Player 2.
+
 Press **P** or **Esc** to pause. Gamepads are supported: pad 1 is Player 1 and pad 2 is Player 2. In classic mode, the left and right sticks drive the two treads.
 
 ## Project layout

@@ -317,6 +317,7 @@ async function afterGameOver() {
 // Update
 // ---------------------------------------------------------------------------
 function update(dt) {
+  Input.soloP1 = !G.players[1].active;
   Input.poll();
   if (Input.pauseP && inGame() && G.state !== 'gameover') G.paused = !G.paused;
   if (G.paused || G.modalOpen) { Sound.engine(0); return; }
