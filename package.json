@@ -1,0 +1,24 @@
+{
+  "name": "vindicators",
+  "version": "1.0.0",
+  "description": "A browser tribute to Atari Games' 1988 twin-tank arcade classic Vindicators.",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "check": "node scripts/check.js",
+    "test": "node scripts/check.js && node scripts/test-levels.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["vindicators", "atari", "arcade", "tank", "game", "canvas", "retro"],
+  "author": "Roberto Renz (https://github.com/robertorenz)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/robertorenz/vidicators.git"
+  },
+  "homepage": "https://github.com/robertorenz/vidicators#readme",
+  "bugs": {
+    "url": "https://github.com/robertorenz/vidicators/issues"
+  }
+}

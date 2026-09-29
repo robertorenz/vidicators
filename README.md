@@ -6,13 +6,15 @@ Drive your SR-88 battle tank through 14 Tangent Empire space stations. Blast gun
 
 ## Running
 
-Open `index.html` in a modern browser. If your browser blocks local files, serve the folder instead:
+You need [Node.js](https://nodejs.org) 18 or newer. There are no dependencies to install.
 
 ```
-python -m http.server 8000
+npm start              # serves the game at http://localhost:8080
+PORT=3000 npm start    # use a different port
+npm test               # syntax-check the scripts and validate all 84 levels
 ```
 
-Then browse to http://localhost:8000.
+You can also open `index.html` directly, or serve the folder with any static server, for example `python -m http.server`.
 
 ## What's faithful to the original
 
@@ -46,6 +48,8 @@ Press **P** or **Esc** to pause. Gamepads are supported: pad 1 is Player 1 and p
 ## Project layout
 
 ```
+package.json      npm scripts (start / check / test)
+scripts/          zero-dependency dev server, syntax check, level validator
 index.html        page shell, modals
 styles.css        page theme
 js/core.js        constants, RNG, settings, high-score storage
